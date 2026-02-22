@@ -1,0 +1,17 @@
+{
+  "path": "Path 1 - Baseline",
+  "best_model": "Random Forest",
+  "num_features": 12,
+  "hyperparameter_tuning": false,
+  "train_mae": 1.55,
+  "test_mae": 4.65,
+  "test_r2": 0.123,
+  "xgb_mae": 5.18,
+  "rf_mae": 4.65,
+  "xgb_time": 0.4,
+  "rf_time": 0.3,
+  "naive_mae": 4.82,
+  "improvement_pct": 3.6,
+  "train_size": 236,
+  "test_size": 60
+}

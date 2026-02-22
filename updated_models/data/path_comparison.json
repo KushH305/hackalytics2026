@@ -1,0 +1,46 @@
+{
+  "path1": {
+    "path": "Path 1 - Baseline",
+    "best_model": "Random Forest",
+    "num_features": 12,
+    "hyperparameter_tuning": false,
+    "train_mae": 1.55,
+    "test_mae": 4.65,
+    "test_r2": 0.123,
+    "xgb_mae": 5.18,
+    "rf_mae": 4.65,
+    "xgb_time": 0.4,
+    "rf_time": 0.3,
+    "naive_mae": 4.82,
+    "improvement_pct": 3.6,
+    "train_size": 236,
+    "test_size": 60
+  },
+  "path2": {
+    "path": "Path 2 - Advanced",
+    "best_model": "XGBoost",
+    "num_features": 17,
+    "hyperparameter_tuning": true,
+    "train_mae": 2.47,
+    "test_mae": 4.58,
+    "test_r2": 0.129,
+    "xgb_mae": 4.58,
+    "rf_mae": 4.7,
+    "xgb_time": 29.6,
+    "rf_time": 19.8,
+    "naive_mae": 4.82,
+    "improvement_pct": 5.0,
+    "best_params": {
+      "colsample_bytree": 1.0,
+      "learning_rate": 0.15,
+      "max_depth": 2,
+      "min_child_weight": 1,
+      "n_estimators": 50,
+      "subsample": 0.8
+    },
+    "train_size": 236,
+    "test_size": 60
+  },
+  "winner": "Path 2",
+  "mae_difference": 0.07
+}

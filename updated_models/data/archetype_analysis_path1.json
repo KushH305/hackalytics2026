@@ -1,0 +1,39 @@
+{
+  "general_mae": 4.648707625956777,
+  "archetype_mae": 4.618887982343964,
+  "cluster_metrics": {
+    "0": {
+      "status": "trained",
+      "train_size": 85,
+      "test_size": 21,
+      "train_mae": 1.5404849450760707,
+      "mae": 4.984459278155707
+    },
+    "1": {
+      "status": "trained",
+      "train_size": 89,
+      "test_size": 23,
+      "train_mae": 1.423293710670026,
+      "mae": 4.240222092812176
+    },
+    "2": {
+      "status": "trained",
+      "train_size": 23,
+      "test_size": 6,
+      "train_mae": 1.1146304347826124,
+      "mae": 4.175749999999996
+    },
+    "3": {
+      "status": "trained",
+      "train_size": 29,
+      "test_size": 8,
+      "train_mae": 2.0614339080459754,
+      "mae": 5.080281250000005
+    },
+    "4": {
+      "status": "insufficient_data",
+      "train_size": 10,
+      "test_size": 2
+    }
+  }
+}
