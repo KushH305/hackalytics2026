@@ -3,7 +3,7 @@ import numpy as np
 from nba_api.stats.endpoints import drafthistory, playercareerstats
 import time
 import os
-import sys
+import sys  
 
 # Force encoding to UTF-8 for the terminal just in case
 sys.stdout.reconfigure(encoding='utf-8')

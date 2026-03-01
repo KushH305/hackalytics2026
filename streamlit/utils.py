@@ -7,31 +7,34 @@ import plotly.express as px
 from nba_api.stats.static import players
 import json
 
+# ==========================================
+# PATH CONFIGURATION
+# ==========================================
 
-
-
-# 1. Base Directory logic
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.dirname(BASE_DIR)
 UPDATED_MODELS_DIR = os.path.join(PROJECT_ROOT, 'updated_models')
 
-# 2. DATA PATHS (Matches the 'data' folder in your image)
+# Data paths
 DATA_PATH = os.path.join(UPDATED_MODELS_DIR, 'data', 'final_player_predictions.csv')
 CLUSTER_STATS_PATH = os.path.join(UPDATED_MODELS_DIR, 'data', 'cluster_stats.csv')
-FEATURE_IMPORTANCE_PATH = os.path.join(UPDATED_MODELS_DIR, 'data', 'feature_importance_path1.csv')
 TEST_P1_PATH = os.path.join(UPDATED_MODELS_DIR, 'data', 'test_predictions_path1.csv')
 TEST_P2_PATH = os.path.join(UPDATED_MODELS_DIR, 'data', 'test_predictions_path2.csv')
+FEATURE_IMP_P1_PATH = os.path.join(UPDATED_MODELS_DIR, 'data', 'feature_importance_path1.csv')
+FEATURE_IMP_P2_PATH = os.path.join(UPDATED_MODELS_DIR, 'data', 'feature_importance_path2.csv')
 
-# 3. MODEL PATHS (Matches the nested 'models/pathX' structure)
-# Inside 'models', you have 'path1' and 'path2' folders
+# Model paths
 MODEL_PATH_P1 = os.path.join(UPDATED_MODELS_DIR, 'models', 'path1', 'final_model.pkl')
 MODEL_PATH_P2 = os.path.join(UPDATED_MODELS_DIR, 'models', 'path2', 'final_model.pkl')
 
-# Scaler and KMeans are directly in the 'models' folder (not in path1/path2)
-SCALER_PATH = os.path.join(UPDATED_MODELS_DIR, 'models', 'scaler.pkl')
-KMEANS_PATH = os.path.join(UPDATED_MODELS_DIR, 'models', 'kmeans_model.pkl')
+# Metadata paths
+METADATA_P1_JSON = os.path.join(UPDATED_MODELS_DIR, 'data', 'model_metadata_path1.json')
+METADATA_P2_JSON = os.path.join(UPDATED_MODELS_DIR, 'data', 'model_metadata_path2.json')
 
-# --- ARCHEOTYPE DICTIONARY ---
+# ==========================================
+# CONSTANTS
+# ==========================================
+
 ARCHETYPE_MAP = {
     0: {"name": "Floor General", "desc": "High AST/TOV ratio. Primary offensive engine and playmaker."},
     1: {"name": "Paint Protector", "desc": "Interior force. High REB and FG% near the rim."},
@@ -40,15 +43,6 @@ ARCHETYPE_MAP = {
     4: {"name": "Rotation Specialist", "desc": "Value depth players with niche roles (bench scoring/defense)."}
 }
 
-# --- Add these to your paths section in utils.py ---
-PATH_COMPARISON_JSON = os.path.join(UPDATED_MODELS_DIR, 'data', 'path_comparison.json')
-METADATA_P1_JSON = os.path.join(UPDATED_MODELS_DIR, 'data', 'model_metadata_path1.json')
-METADATA_P2_JSON = os.path.join(UPDATED_MODELS_DIR, 'data', 'model_metadata_path2.json')
-
-# Add to your existing imports
-import plotly.graph_objects as go
-
-# Add this new constant (after ARCHETYPE_MAP)
 STAT_GLOSSARY = {
     'Y2 PPG': """
 **Year 2 Points Per Game**
@@ -98,15 +92,154 @@ Players with +3 PPG growth have 2.1x higher breakout probability.
     """
 }
 
-# Add this NEW function
+FEATURES_PATH1 = [
+    'y2_pts', 'y2_reb', 'y2_ast', 'y2_min',
+    'y2_fg_pct', 'y2_fg3_pct', 'y2_ft_pct',
+    'delta_pts', 'delta_ast', 'delta_min',
+    'y2_ast_tov', 'draft_pick'
+]
+
+# ==========================================
+# DATA LOADING FUNCTIONS
+# ==========================================
+
+@st.cache_resource
+def load_artifacts():
+    """Load ML models for predictions (Path 1 and Path 2 only)."""
+    model_p1 = joblib.load(MODEL_PATH_P1)
+    model_p2 = joblib.load(MODEL_PATH_P2)
+    return model_p1, model_p2
+
+@st.cache_data
+def load_data():
+    """Load the main player predictions dataset."""
+    df = pd.read_csv(DATA_PATH)
+    df['draft_pick'] = pd.to_numeric(df['draft_pick'], errors='coerce').fillna(60)
+    return df
+
+@st.cache_data
+def load_metadata():
+    """Load JSON metadata for both model paths."""
+    try:
+        with open(METADATA_P1_JSON, 'r') as f:
+            p1 = json.load(f)
+        with open(METADATA_P2_JSON, 'r') as f:
+            p2 = json.load(f)
+        return p1, p2
+    except Exception as e:
+        # Fallback data
+        return {
+            "test_mae": "4.92",
+            "num_features": 12,
+            "best_model": "XGBoost",
+            "test_r2": "0.35",
+            "train_mae": "2.5",
+            "xgb_time": 2,
+            "improvement_pct": "10"
+        }, {
+            "test_mae": "4.58",
+            "num_features": 17,
+            "best_model": "XGBoost (Tuned)",
+            "test_r2": "0.42",
+            "train_mae": "2.2",
+            "xgb_time": 15,
+            "improvement_pct": "12"
+        }
+
+@st.cache_data
+def load_cluster_stats():
+    """Load cluster statistics."""
+    return pd.read_csv(CLUSTER_STATS_PATH)
+
+@st.cache_data
+def load_feature_importance():
+    """Load feature importance for both paths."""
+    imp_p1 = pd.read_csv(FEATURE_IMP_P1_PATH)
+    imp_p2 = pd.read_csv(FEATURE_IMP_P2_PATH)
+    return imp_p1, imp_p2
+
+@st.cache_data
+def load_test_predictions():
+    """Load test predictions for both paths."""
+    test_p1 = pd.read_csv(TEST_P1_PATH)
+    test_p2 = pd.read_csv(TEST_P2_PATH)
+    return test_p1, test_p2
+
+# ==========================================
+# HELPER FUNCTIONS
+# ==========================================
+
+def get_player_data(df, player_name):
+    """Retrieve all stats for a specific player."""
+    player_row = df[df['name'] == player_name]
+    if not player_row.empty:
+        return player_row.iloc[0]
+    return None
+
+def get_archetype_info(cluster_id):
+    """Get archetype name and description from cluster ID."""
+    return ARCHETYPE_MAP.get(cluster_id, {"name": "Unknown", "desc": "N/A"})
+
+def calculate_advanced_features(player_row):
+    """Calculate Path 2 engineered features for a single player."""
+    # 1. Skill Diversity Score
+    sd_score = (
+        (player_row['delta_pts'] > 2).astype(int) +
+        (player_row['delta_ast'] > 1).astype(int) +
+        ((player_row['y2_fg3_pct'] - player_row['y1_fg3_pct']) > 0.03).astype(int)
+    )
+    
+    # 2. Usage to Efficiency
+    usage_eff = player_row['y2_pts'] / (player_row['y2_fg_pct'] + 0.01)
+    
+    # 3. Draft Overperformance
+    expected_ppg = 20 - (player_row['draft_pick'] * 0.25)
+    draft_gap = player_row['y2_pts'] - expected_ppg
+    
+    # 4. Minutes Trajectory
+    min_trajectory = player_row['delta_min'] / (player_row['y1_min'] + 1)
+    
+    # 5. FT% Improvement
+    ft_delta = player_row['y2_ft_pct'] - player_row['y1_ft_pct']
+    
+    return {
+        'skill_diversity': sd_score,
+        'usage_to_efficiency': usage_eff,
+        'overperform_draft': draft_gap,
+        'minutes_trajectory': min_trajectory,
+        'ft_pct_improvement': ft_delta
+    }
+
+@st.cache_data
+def get_player_image(player_name):
+    """
+    Fetch player headshot from NBA API.
+    Returns official NBA CDN URL or Logoman placeholder.
+    """
+    try:
+        nba_players = players.find_players_by_full_name(player_name)
+        
+        if nba_players:
+            p_id = nba_players[0]['id']
+            return f"https://ak-static.cms.nba.com/wp-content/uploads/headshots/nba/latest/260x190/{p_id}.png"
+        
+    except Exception as e:
+        print(f"Error fetching image for {player_name}: {e}")
+    
+    # Fallback
+    return "https://ak-static.cms.nba.com/wp-content/uploads/headshots/nba/latest/260x190/logoman.png"
+
+# ==========================================
+# VISUALIZATION FUNCTIONS
+# ==========================================
+
 def create_better_trajectory_chart(player_row, pred_p1, pred_p2):
     """
-    Creates an improved career trajectory chart with better aesthetics and clarity.
-    Shows Year 1, Year 2 (actual), and Year 5 (both predictions + actual if available).
+    Create career trajectory chart showing Year 1-2 actual + Year 5 predictions.
     """
     fig = go.Figure()
     
-    # Actual career data (solid line)
+    # Actual career data (Year 1-2)
     actual_years = [1, 2]
     actual_ppg = [player_row['y1_pts'], player_row['y2_pts']]
     
@@ -119,7 +252,7 @@ def create_better_trajectory_chart(player_row, pred_p1, pred_p2):
         marker=dict(size=12, symbol='circle')
     ))
     
-    # Path 1 Prediction (from Year 2 to Year 5)
+    # Path 1 Prediction
     fig.add_trace(go.Scatter(
         x=[2, 5],
         y=[player_row['y2_pts'], pred_p1],
@@ -129,7 +262,7 @@ def create_better_trajectory_chart(player_row, pred_p1, pred_p2):
         marker=dict(size=14, symbol='diamond')
     ))
     
-    # Path 2 Prediction (from Year 2 to Year 5)
+    # Path 2 Prediction
     fig.add_trace(go.Scatter(
         x=[2, 5],
         y=[player_row['y2_pts'], pred_p2],
@@ -139,7 +272,7 @@ def create_better_trajectory_chart(player_row, pred_p1, pred_p2):
         marker=dict(size=14, symbol='diamond')
     ))
     
-    # If actual Year 5 exists, add it
+    # Actual Year 5 (if exists)
     if not pd.isna(player_row['y5_pts']):
         fig.add_trace(go.Scatter(
             x=[5],
@@ -149,7 +282,7 @@ def create_better_trajectory_chart(player_row, pred_p1, pred_p2):
             marker=dict(size=16, symbol='star', color='#06A77D', line=dict(width=2, color='white'))
         ))
     
-    # Add shaded region showing prediction uncertainty
+    # Uncertainty region
     fig.add_trace(go.Scatter(
         x=[2, 5, 5, 2],
         y=[player_row['y2_pts'], pred_p1, pred_p2, player_row['y2_pts']],
@@ -162,7 +295,7 @@ def create_better_trajectory_chart(player_row, pred_p1, pred_p2):
     
     # Styling
     fig.update_layout(
-        title=f"Career Projection: Years 1-5",
+        title="Career Projection: Years 1-5",
         xaxis_title="NBA Season",
         yaxis_title="Points Per Game",
         xaxis=dict(
@@ -190,119 +323,16 @@ def create_better_trajectory_chart(player_row, pred_p1, pred_p2):
     
     return fig
 
-@st.cache_data
-def load_metadata():
-    """Load JSON metadata for both model paths."""
-    try:
-        with open(PATH_COMPARISON_JSON, 'r') as f:
-            comparison = json.load(f)
-        with open(METADATA_P1_JSON, 'r') as f:
-            p1 = json.load(f)
-        with open(METADATA_P2_JSON, 'r') as f:
-            p2 = json.load(f)
-        return comparison, p1, p2
-    except Exception as e:
-        # Fallback data in case JSONs aren't generated yet
-        return {}, {"MAE": "4.92", "Features": 12}, {"MAE": "4.58", "Features": 17}
-
-def calculate_advanced_features(player_row):
-    """Calculates Path 2 engineered features for a single player row."""
-    # 1. Skill Diversity Score
-    sd_score = (
-        (player_row['delta_pts'] > 2).astype(int) +
-        (player_row['delta_ast'] > 1).astype(int) +
-        ((player_row['y2_fg3_pct'] - player_row['y1_fg3_pct']) > 0.03).astype(int)
-    )
-    
-    # 2. Efficiency Maintenance
-    usage_eff = player_row['y2_pts'] / (player_row['y2_fg_pct'] + 0.01)
-    
-    # 3. Draft Position Gap (Expected PPG vs Actual)
-    expected_ppg = 20 - (player_row['draft_pick'] * 0.25)
-    draft_gap = player_row['y2_pts'] - expected_ppg
-    
-    # 4. Minutes Momentum
-    min_trajectory = player_row['delta_min'] / (player_row['y1_min'] + 1)
-    
-    # 5. FT % Improvement
-    ft_delta = player_row['y2_ft_pct'] - player_row['y1_ft_pct']
-    
-    return {
-        'skill_diversity': sd_score,
-        'usage_to_efficiency': usage_eff,
-        'overperform_draft': draft_gap,
-        'minutes_trajectory': min_trajectory,
-        'ft_pct_improvement': ft_delta
-    }
-
-def get_archetype_info(cluster_id):
-    return ARCHETYPE_MAP.get(cluster_id, {"name": "Unknown", "desc": "N/A"})
-
-@st.cache_resource
-def load_artifacts():
-    """Load both models and shared scaler/kmeans."""
-    model_p1 = joblib.load(MODEL_PATH_P1)
-    model_p2 = joblib.load(MODEL_PATH_P2)
-    scaler = joblib.load(SCALER_PATH)
-    kmeans = joblib.load(KMEANS_PATH)
-    return model_p1, model_p2, scaler, kmeans
-
-@st.cache_data
-def load_data():
-    """Load the processed predictions CSV."""
-    df = pd.read_csv(DATA_PATH)
-    # Ensure draft_pick is numeric for plotting
-    df['draft_pick'] = pd.to_numeric(df['draft_pick'], errors='coerce').fillna(60)
-    return df
-
-def get_player_data(df, player_name):
-    """Retrieve all stats for a specific player."""
-    player_row = df[df['name'] == player_name]
-    if not player_row.empty:
-        return player_row.iloc[0]
-    return None
-
-def get_archetype_name(cluster_id):
-    """Convert numeric cluster ID to human-readable string name."""
-    info = ARCHETYPE_MAP.get(cluster_id, {"name": "Unknown Archetype"})
-    return info["name"]
-
-def format_prediction_metrics(player_row, model, features):
-    """Helper to organize data and generate predictions on the fly if missing."""
-    
-    # 1. Check if we already have a saved prediction in the CSV
-    pred_val = player_row.get('predicted_y5_pts', None)
-    
-    # 2. If it's missing (NaN or N/A), calculate it NOW using the model
-    if pd.isna(pred_val) or pred_val == 0:
-        # Prepare the features for this specific player
-        # We wrap it in a list [[]] because the model expects a 2D array
-        feat_input = pd.DataFrame([player_row[features].fillna(0)])
-        pred_val = float(model.predict(feat_input)[0])
-
-    metrics = {
-        "Year 2 PPG": round(float(player_row['y2_pts']), 1),
-        "Predicted Year 5 PPG": round(pred_val, 1),
-        "Improvement (Points)": round(float(player_row['delta_pts']), 1),
-        "Archetype": get_archetype_name(player_row['cluster'])
-    }
-    
-    if not pd.isna(player_row['y5_pts']):
-        metrics["Actual Year 5 PPG"] = round(float(player_row['y5_pts']), 1)
-        
-    return metrics
-
-
 def create_radar_chart(player_row, df):
-    # Get the average stats for this player's cluster
+    """Create radar chart comparing player to cluster average."""
     cluster_id = player_row['cluster']
     cluster_avg = df[df['cluster'] == cluster_id][['y2_pts', 'y2_reb', 'y2_ast', 'y2_fg_pct']].mean()
     
     categories = ['Points', 'Rebounds', 'Assists', 'FG%']
     
     fig = go.Figure()
-
-    # Player Trace
+    
+    # Player trace
     fig.add_trace(go.Scatterpolar(
         r=[player_row['y2_pts'], player_row['y2_reb'], player_row['y2_ast'], player_row['y2_fg_pct']*100],
         theta=categories,
@@ -310,39 +340,18 @@ def create_radar_chart(player_row, df):
         name='Player (Y2)'
     ))
     
-    # Cluster Average Trace
+    # Cluster average trace
     fig.add_trace(go.Scatterpolar(
         r=[cluster_avg['y2_pts'], cluster_avg['y2_reb'], cluster_avg['y2_ast'], cluster_avg['y2_fg_pct']*100],
         theta=categories,
         fill='toself',
         name='Cluster Avg'
     ))
-
+    
     fig.update_layout(
         polar=dict(radialaxis=dict(visible=True, range=[0, 30])),
         showlegend=True,
         title=f"Comparison: {player_row['name']} vs. Cluster Average"
     )
+    
     return fig
-
-@st.cache_data
-def get_player_image(player_name):
-    """
-    Finds player_id by name using nba_api and returns official headshot URL.
-    Returns a 'Logoman' placeholder if the player isn't found.
-    """
-    try:
-        # Search for player by name (case-insensitive)
-        nba_players = players.find_players_by_full_name(player_name)
-        
-        if nba_players:
-            # Take the first match and get their ID
-            p_id = nba_players[0]['id']
-            # Official NBA CDN URL
-            return f"https://ak-static.cms.nba.com/wp-content/uploads/headshots/nba/latest/260x190/{p_id}.png"
-        
-    except Exception as e:
-        print(f"Error fetching image for {player_name}: {e}")
-        
-    # Fallback to NBA Logoman if player not found or error occurs
-    return "https://ak-static.cms.nba.com/wp-content/uploads/headshots/nba/latest/260x190/logoman.png"
