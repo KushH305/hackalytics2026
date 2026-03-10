@@ -182,32 +182,63 @@ def get_archetype_info(cluster_id):
 
 def calculate_advanced_features(player_row):
     """Calculate Path 2 engineered features for a single player."""
-    # 1. Skill Diversity Score
-    sd_score = (
-        (player_row['delta_pts'] > 2).astype(int) +
-        (player_row['delta_ast'] > 1).astype(int) +
-        ((player_row['y2_fg3_pct'] - player_row['y1_fg3_pct']) > 0.03).astype(int)
-    )
+    
+    # Force conversion to native Python types (avoid pandas weirdness)
+    try:
+        # Extract values as floats
+        delta_pts = float(player_row['delta_pts']) if pd.notna(player_row['delta_pts']) else 0.0
+        delta_ast = float(player_row['delta_ast']) if pd.notna(player_row['delta_ast']) else 0.0
+        delta_min = float(player_row['delta_min']) if pd.notna(player_row['delta_min']) else 0.0
+        
+        y1_min = float(player_row['y1_min']) if pd.notna(player_row['y1_min']) else 1.0
+        y1_fg3_pct = float(player_row['y1_fg3_pct']) if pd.notna(player_row['y1_fg3_pct']) else 0.0
+        y1_ft_pct = float(player_row['y1_ft_pct']) if pd.notna(player_row['y1_ft_pct']) else 0.0
+        
+        y2_pts = float(player_row['y2_pts']) if pd.notna(player_row['y2_pts']) else 0.0
+        y2_fg_pct = float(player_row['y2_fg_pct']) if pd.notna(player_row['y2_fg_pct']) else 0.01
+        y2_fg3_pct = float(player_row['y2_fg3_pct']) if pd.notna(player_row['y2_fg3_pct']) else 0.0
+        y2_ft_pct = float(player_row['y2_ft_pct']) if pd.notna(player_row['y2_ft_pct']) else 0.0
+        
+        draft_pick = float(player_row['draft_pick']) if pd.notna(player_row['draft_pick']) else 30.0
+        
+    except (KeyError, TypeError, ValueError) as e:
+        st.error(f"Error calculating features for {player_row.get('name', 'player')}: {e}")
+        return {
+            'skill_diversity': 0,
+            'usage_to_efficiency': 0.0,
+            'overperform_draft': 0.0,
+            'minutes_trajectory': 0.0,
+            'ft_pct_improvement': 0.0
+        }
+    
+    # 1. Skill Diversity - using if statements instead of .astype()
+    sd_score = 0
+    if delta_pts > 2:
+        sd_score += 1
+    if delta_ast > 1:
+        sd_score += 1
+    if (y2_fg3_pct - y1_fg3_pct) > 0.03:
+        sd_score += 1
     
     # 2. Usage to Efficiency
-    usage_eff = player_row['y2_pts'] / (player_row['y2_fg_pct'] + 0.01)
+    usage_eff = y2_pts / (y2_fg_pct + 0.01)
     
     # 3. Draft Overperformance
-    expected_ppg = 20 - (player_row['draft_pick'] * 0.25)
-    draft_gap = player_row['y2_pts'] - expected_ppg
+    expected_ppg = 20 - (draft_pick * 0.25)
+    draft_gap = y2_pts - expected_ppg
     
     # 4. Minutes Trajectory
-    min_trajectory = player_row['delta_min'] / (player_row['y1_min'] + 1)
+    min_trajectory = delta_min / (y1_min + 1.0)
     
     # 5. FT% Improvement
-    ft_delta = player_row['y2_ft_pct'] - player_row['y1_ft_pct']
+    ft_delta = y2_ft_pct - y1_ft_pct
     
     return {
-        'skill_diversity': sd_score,
-        'usage_to_efficiency': usage_eff,
-        'overperform_draft': draft_gap,
-        'minutes_trajectory': min_trajectory,
-        'ft_pct_improvement': ft_delta
+        'skill_diversity': float(sd_score),
+        'usage_to_efficiency': float(usage_eff),
+        'overperform_draft': float(draft_gap),
+        'minutes_trajectory': float(min_trajectory),
+        'ft_pct_improvement': float(ft_delta)
     }
 
 @st.cache_data
