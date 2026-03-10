@@ -3,6 +3,6 @@ numpy==2.0.2
 scikit-learn==1.6.1
 xgboost==3.2.0
 joblib==1.5.3
-streamlit==1.29.0
-plotly==5.18.0
+streamlit==1.40.2
+plotly==5.24.1
 nba-api==1.4.1
